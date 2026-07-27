@@ -1,28 +1,20 @@
 #!/usr/bin/env bash
-# Script that displays information about subdomains
-# Usage: ./0-world_wide_web domain [subdomain]
+# Script to config domain zone to point to load balancer
 
-# Function to display subdomain info
-check_subdomain() {
+display_info() {
     local domain=$1
     local subdomain=$2
-
-    # shellcheck disable=SC2086
-    info=$(dig $subdomain.$domain | awk '/ANSWER SECTION:/{found=1; next} found && NF{print $4, $5; exit}')
-
-    record_type=$(echo $info | awk '{print $1}')
-    destination=$(echo $info | awk '{print $2}')
-
-    echo "The subdomain $subdomain is a $record_type record and points to $destination"
+    dig "$subdomain.$domain" | grep -A1 'ANSWER SECTION:' | tail -n 1 | awk -v sd="$subdomain" '{print "The subdomain " sd " is a " $4 " record and points to " $5}'
 }
 
 domain=$1
 subdomain=$2
 
 if [ -z "$subdomain" ]; then
-    for sub in www lb-01 web-01 web-02; do
-        check_subdomain "$domain" "$sub"
-    done
+    display_info "$domain" "www"
+    display_info "$domain" "lb-01"
+    display_info "$domain" "web-01"
+    display_info "$domain" "web-02"
 else
-    check_subdomain "$domain" "$subdomain"
+    display_info "$domain" "$subdomain"
 fi

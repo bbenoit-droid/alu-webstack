@@ -8,11 +8,9 @@ global
         group haproxy
         daemon
 
-        # Default SSL material locations
         ca-base /etc/ssl/certs
         crt-base /etc/ssl/private
 
-        # See: https://ssl-config.mozilla.org/#server=haproxy&server-version=2.0.3&config=intermediate
         ssl-default-bind-ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384
         ssl-default-bind-ciphersuites TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
         ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
@@ -33,17 +31,25 @@ defaults
         errorfile 503 /etc/haproxy/errors/503.http
         errorfile 504 /etc/haproxy/errors/504.http
 
-
-frontend www-http
+frontend lb-frontend
         bind *:80
-        http-request redirect scheme https code 301
+        bind *:443 ssl crt /etc/letsencrypt/live/www.fabricemb.tech/my_cert.pem
+        mode http
 
-frontend www-https
-        bind *:443 ssl crt /etc/haproxy/certs/www.honnete.tech.pem
-        default_backend web-backend
+        # letsencrypt ACME challenge
+        acl is_letsencrypt path_beg -i /.well-known/acme-challenge/
 
-backend web-backend
+        # redirect to https
+        redirect scheme https code 301 if !{ ssl_fc } !is_letsencrypt
+
+        use_backend letsencrypt if is_letsencrypt
+        default_backend lb-backend
+
+backend letsencrypt
+        server letsencrypt 127.0.0.1:8888
+
+backend lb-backend
         balance roundrobin
-        option httpchk HEAD / HTTP/1.1\r\nHost:\ localhost
-        server web-01 44.211.76.97:80 check
-        server web-02 13.218.144.213:80 check
+        server 6835-web-01 44.205.252.141:80 check
+        server 6835-web-02 3.88.57.97:80 check
+
