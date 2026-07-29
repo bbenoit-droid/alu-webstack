@@ -1,12 +1,15 @@
+```text
 global
-        log /dev/log    local0
-        log /dev/log    local1 notice
+        log /dev/log local0
+        log /dev/log local1 notice
         chroot /var/lib/haproxy
         stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
         stats timeout 30s
         user haproxy
         group haproxy
         daemon
+
+        tune.ssl.default-dh-param 2048
 
         ca-base /etc/ssl/certs
         crt-base /etc/ssl/private
@@ -16,13 +19,14 @@ global
         ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
 
 defaults
-        log     global
-        mode    http
-        option  httplog
-        option  dontlognull
+        log global
+        mode http
+        option httplog
+        option dontlognull
         timeout connect 5000
-        timeout client  50000
-        timeout server  50000
+        timeout client 50000
+        timeout server 50000
+
         errorfile 400 /etc/haproxy/errors/400.http
         errorfile 403 /etc/haproxy/errors/403.http
         errorfile 408 /etc/haproxy/errors/408.http
@@ -31,25 +35,15 @@ defaults
         errorfile 503 /etc/haproxy/errors/503.http
         errorfile 504 /etc/haproxy/errors/504.http
 
-frontend lb-frontend
+frontend http_front
         bind *:80
-        bind *:443 ssl crt /etc/letsencrypt/live/www.fabricemb.tech/my_cert.pem
-        mode http
+        redirect scheme https code 301
 
-        # letsencrypt ACME challenge
-        acl is_letsencrypt path_beg -i /.well-known/acme-challenge/
+frontend https_front
+        bind *:443 ssl crt /etc/haproxy/certs/www.guestbridgerwanda.tech.pem
+        default_backend web_servers
 
-        # redirect to https
-        redirect scheme https code 301 if !{ ssl_fc } !is_letsencrypt
-
-        use_backend letsencrypt if is_letsencrypt
-        default_backend lb-backend
-
-backend letsencrypt
-        server letsencrypt 127.0.0.1:8888
-
-backend lb-backend
+backend web_servers
         balance roundrobin
-        server 6835-web-01 44.205.252.141:80 check
-        server 6835-web-02 3.88.57.97:80 check
-
+        server web-01 3.91.180.172:80 check
+        server web-02 18.212.73.129:80 check
